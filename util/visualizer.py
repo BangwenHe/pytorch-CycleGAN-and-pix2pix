@@ -255,3 +255,23 @@ class Visualizer():
         print(message)  # print the message
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)  # save the message
+
+    def vis_table(self, name, tbl, opts=None):
+        tbl_str = "<table width=\"100%\"> "
+        tbl_str+="<tr> \
+                 <th>Term</th> \
+                 <th>Value</th> \
+                 </tr>"
+        for k, v in tbl.items():
+            tbl_str+=  "<tr> \
+                       <td>%s</td> \
+                       <td>%s</td> \
+                       </tr>"%(k, v)
+
+        tbl_str+="</table>"
+
+        default_opts = { 'title': name }
+        if opts is not None:
+            default_opts.update(opts)
+
+        self.vis.text(tbl_str, win=name, opts=default_opts)
