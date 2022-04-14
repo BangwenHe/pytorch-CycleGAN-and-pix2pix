@@ -68,7 +68,11 @@ class CDDataset(BaseDataset):
 
         assert len(image_paths) == len(cd_paths), f'len(image_paths)={len(image_paths)}, len(cd_paths)={len(cd_paths)}'
 
-        files_idxes = np.random.choice(len(image_paths), self.opt.max_dataset_size, replace=False)
+        if len(image_paths) > self.opt.max_dataset_size:
+            files_idxes = np.random.choice(len(image_paths), self.opt.max_dataset_size, replace=False)
+        else:
+            files_idxes = np.arange(len(image_paths))
+            np.random.shuffle(files_idxes)
         self.image_paths = [image_paths[i] for i in files_idxes]
         self.cd_paths = [cd_paths[i] for i in files_idxes]
 
