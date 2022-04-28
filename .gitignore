@@ -1,3 +1,6 @@
+wandb/
+.vscode/
+
 .DS_Store
 debug*
 datasets/

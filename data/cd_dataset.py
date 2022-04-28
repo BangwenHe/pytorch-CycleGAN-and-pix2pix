@@ -3,13 +3,13 @@
 """
 import os
 import os.path as osp
-from secrets import choice
 
 import numpy as np
+from PIL import Image, ImageOps
 
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
-from PIL import Image, ImageOps
+from util.util import get_color_map_list, get_pseudo_color_map
 
 
 def load_cdd(cdd_filepath, image_width, image_height):
@@ -57,66 +57,19 @@ def load_cdd(cdd_filepath, image_width, image_height):
     return image
 
 
-# Copyright @PaddleSeg
-def get_pseudo_color_map(pred, color_map=None):
-    """
-    Get the pseudo color image.
-    Args:
-        pred (numpy.ndarray): the origin predicted image.
-        color_map (list, optional): the palette color map. Default: None,
-            use paddleseg's default color map.
-    
-    Returns:
-        (numpy.ndarray): the pseduo image.
-    """
-    pred_mask = Image.fromarray(pred.astype(np.uint8), mode='P')
-    if color_map is None:
-        color_map = get_color_map_list(256)
-    pred_mask.putpalette(color_map)
-    return pred_mask
-
-
-def get_color_map_list(num_classes, custom_color=None):
-    """
-    Returns the color map for visualizing the segmentation mask,
-    which can support arbitrary number of classes.
-    Args:
-        num_classes (int): Number of classes.
-        custom_color (list, optional): Save images with a custom color map. Default: None, use paddleseg's default color map.
-    Returns:
-        (list). The color map.
-    """
-
-    num_classes += 1
-    color_map = num_classes * [0, 0, 0]
-    for i in range(0, num_classes):
-        j = 0
-        lab = i
-        while lab:
-            color_map[i * 3] |= (((lab >> 0) & 1) << (7 - j))
-            color_map[i * 3 + 1] |= (((lab >> 1) & 1) << (7 - j))
-            color_map[i * 3 + 2] |= (((lab >> 2) & 1) << (7 - j))
-            j += 1
-            lab >>= 3
-    color_map = color_map[3:]
-
-    if custom_color:
-        color_map[:len(custom_color)] = custom_color
-    return color_map
-
-
 class CDDataset(BaseDataset):
     def __init__(self, opt):
         BaseDataset.__init__(self, opt)
         voc2012_dir = osp.join(opt.dataroot, 'VOCdevkit', 'VOC2012')
         voc2021_train_file = osp.join(voc2012_dir, 'ImageSets', 'Segmentation', 'train.txt')
+        self.suffix_cd = opt.suffix_cd
         with open(voc2021_train_file, 'r') as f:
             filenames = f.readlines()
             if opt.target == 'rgb':
                 image_paths = [osp.join(voc2012_dir, 'JPEGImages', line.strip() + '.jpg') for line in filenames]
             elif opt.target == 'mask':
                 image_paths = [osp.join(voc2012_dir, 'SegmentationClass', line.strip() + '.png') for line in filenames]
-            cd_paths = [osp.join(voc2012_dir, 'CompressedDomainData', line.strip() + '.txt') for line in filenames]
+            cd_paths = [osp.join(voc2012_dir, 'CompressedDomainData', line.strip() + f'.{self.suffix_cd}') for line in filenames]
 
         assert len(image_paths) == len(cd_paths), f'len(image_paths)={len(image_paths)}, len(cd_paths)={len(cd_paths)}'
 
@@ -128,21 +81,26 @@ class CDDataset(BaseDataset):
         self.image_paths = [image_paths[i] for i in files_idxes]
         self.cd_paths = [cd_paths[i] for i in files_idxes]
 
-        self.transform = get_transform(opt)
+        self.transform = get_transform(opt, grayscale=(opt.input_nc == 1))
         self.color_map = get_color_map_list(2)
+        self.encode_target_rule = opt.encode_target_rule
     
     @staticmethod
     def modify_commandline_options(parser, is_train):
-        print(parser)
         parser.add_argument('--crop_person', action='store_true', help='crop person')
         parser.add_argument('--target', choices=['rgb', 'mask'], default='rgb', help='train target, rgb or mask')
+        parser.add_argument('--suffix_cd', type=str, default='txt', choices=['txt', 'png'], help='suffix of compressed domain data')
+        parser.add_argument('--encode_target_rule', type=str, default='vos', choices=['vos', 'davis'], help='encode target rule, vos or davis')
         return parser
 
     def encode_target(self, mask):
         """Encode mask to target"""
         mask = np.array(mask)
-        mask[mask != 11] = 0
-        mask[mask == 11] = 1
+        if self.encode_target_rule == 'davis':
+            mask[mask != 11] = 0
+            mask[mask == 11] = 1
+        elif self.encode_target_rule == 'vos':
+            mask[mask > 0] = 1
         return get_pseudo_color_map(mask, color_map=self.color_map)
     
     def crop_person(self, image, mask):
@@ -164,7 +122,11 @@ class CDDataset(BaseDataset):
         path = self.image_paths[index]
         cd_path = self.cd_paths[index]
         image = Image.open(path)
-        cd = Image.fromarray(load_cdd(cd_path, image.width, image.height))
+
+        if self.suffix_cd == 'txt':
+            cd = Image.fromarray(load_cdd(cd_path, image.width, image.height))
+        elif self.suffix_cd == 'png':
+            cd = Image.open(cd_path)
 
         if image.width > image.height:
             image = image.rotate(90, expand=True)
@@ -172,6 +134,8 @@ class CDDataset(BaseDataset):
         
         if self.opt.target == 'mask':
             image = self.encode_target(image)
+            if self.opt.suffix_cd == 'png':
+                cd = self.encode_target(cd)
         
         if self.opt.crop_person:
             assert self.opt.target == 'mask', 'crop_person only support mask target'

@@ -1,4 +1,5 @@
 import os
+import warnings
 import torch
 from collections import OrderedDict
 from abc import ABC, abstractmethod
@@ -183,6 +184,10 @@ class BaseModel(ABC):
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (epoch, name)
                 load_path = os.path.join(self.save_dir, load_filename)
+                if not os.path.exists(load_path):
+                    warnings.warn('%s not exists' % load_path)
+                    continue
+
                 net = getattr(self, 'net' + name)
                 if isinstance(net, torch.nn.DataParallel):
                     net = net.module
