@@ -61,9 +61,9 @@ class CDDataset(BaseDataset):
     def __init__(self, opt):
         BaseDataset.__init__(self, opt)
         voc2012_dir = osp.join(opt.dataroot, 'VOCdevkit', 'VOC2012')
-        voc2021_train_file = osp.join(voc2012_dir, 'ImageSets', 'Segmentation', 'train.txt')
+        voc2021_dataset_file = osp.join(voc2012_dir, 'ImageSets', 'Segmentation', f'{opt.phase}.txt')
         self.suffix_cd = opt.suffix_cd
-        with open(voc2021_train_file, 'r') as f:
+        with open(voc2021_dataset_file, 'r') as f:
             filenames = f.readlines()
             if opt.target == 'rgb':
                 image_paths = [osp.join(voc2012_dir, 'JPEGImages', line.strip() + '.jpg') for line in filenames]
@@ -99,9 +99,11 @@ class CDDataset(BaseDataset):
         if self.encode_target_rule == 'davis':
             mask[mask != 11] = 0
             mask[mask == 11] = 1
+            return get_pseudo_color_map(mask, color_map=self.color_map)
         elif self.encode_target_rule == 'vos':
-            mask[mask > 0] = 1
-        return get_pseudo_color_map(mask, color_map=self.color_map)
+            mask[mask > 0] = 255
+            mask = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
+            return Image.fromarray(mask.astype(np.uint8))
     
     def crop_person(self, image, mask):
         """Crop person from image and mask"""
@@ -145,8 +147,7 @@ class CDDataset(BaseDataset):
         data_A = self.transform(image)
         data_B = self.transform(cd)
 
-        # return {'A': data_A, 'B': data_B, 'A_image': image, 'B_image': cd}
-        return {'A': data_A, 'B': data_B}
+        return {'A': data_A, 'B': data_B, 'A_paths': path, 'B_paths': cd_path}
 
     def __len__(self):
         """Return the total number of images."""
