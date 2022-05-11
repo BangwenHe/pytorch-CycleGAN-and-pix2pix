@@ -69,7 +69,11 @@ class CDDataset(BaseDataset):
                 image_paths = [osp.join(voc2012_dir, 'JPEGImages', line.strip() + '.jpg') for line in filenames]
             elif opt.target == 'mask':
                 image_paths = [osp.join(voc2012_dir, 'SegmentationClass', line.strip() + '.png') for line in filenames]
-            cd_paths = [osp.join(voc2012_dir, 'CompressedDomainData', line.strip() + f'.{self.suffix_cd}') for line in filenames]
+            
+            if opt.source == 'cd':
+                cd_paths = [osp.join(voc2012_dir, 'CompressedDomainData', line.strip() + f'.{self.suffix_cd}') for line in filenames]
+            elif opt.source == 'mv':
+                cd_paths = [osp.join(voc2012_dir, 'MotionVectors', line.strip() + f'.{self.suffix_cd}') for line in filenames]
 
         assert len(image_paths) == len(cd_paths), f'len(image_paths)={len(image_paths)}, len(cd_paths)={len(cd_paths)}'
 
@@ -89,6 +93,7 @@ class CDDataset(BaseDataset):
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--crop_person', action='store_true', help='crop person')
         parser.add_argument('--target', choices=['rgb', 'mask'], default='rgb', help='train target, rgb or mask')
+        parser.add_argument('--source', choices=['cd', 'mv'], default='cd', help='source, cd or mv')
         parser.add_argument('--suffix_cd', type=str, default='txt', choices=['txt', 'png'], help='suffix of compressed domain data')
         parser.add_argument('--encode_target_rule', type=str, default='vos', choices=['vos', 'davis'], help='encode target rule, vos or davis')
         return parser
@@ -136,7 +141,7 @@ class CDDataset(BaseDataset):
         
         if self.opt.target == 'mask':
             image = self.encode_target(image)
-            if self.opt.suffix_cd == 'png':
+            if self.opt.suffix_cd == 'png' and self.opt.source == 'cd':
                 cd = self.encode_target(cd)
         
         if self.opt.crop_person:
