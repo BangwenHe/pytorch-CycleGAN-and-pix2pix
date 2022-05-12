@@ -70,10 +70,9 @@ class CDDataset(BaseDataset):
             elif opt.target == 'mask':
                 image_paths = [osp.join(voc2012_dir, 'SegmentationClass', line.strip() + '.png') for line in filenames]
             
-            if opt.source == 'cd':
-                cd_paths = [osp.join(voc2012_dir, 'CompressedDomainData', line.strip() + f'.{self.suffix_cd}') for line in filenames]
-            elif opt.source == 'mv':
-                cd_paths = [osp.join(voc2012_dir, 'MotionVectors', line.strip() + f'.{self.suffix_cd}') for line in filenames]
+            src2name = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge'}
+            assert opt.source in src2name.keys()
+            cd_paths = [osp.join(voc2012_dir, src2name[opt.source], line.strip() + self.suffix_cd) for line in filenames]
 
         assert len(image_paths) == len(cd_paths), f'len(image_paths)={len(image_paths)}, len(cd_paths)={len(cd_paths)}'
 
@@ -93,7 +92,7 @@ class CDDataset(BaseDataset):
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--crop_person', action='store_true', help='crop person')
         parser.add_argument('--target', choices=['rgb', 'mask'], default='rgb', help='train target, rgb or mask')
-        parser.add_argument('--source', choices=['cd', 'mv'], default='cd', help='source, cd or mv')
+        parser.add_argument('--source', choices=['cd', 'mv', 'edge'], default='cd', help='source, cd or mv or edge')
         parser.add_argument('--suffix_cd', type=str, default='txt', choices=['txt', 'png'], help='suffix of compressed domain data')
         parser.add_argument('--encode_target_rule', type=str, default='vos', choices=['vos', 'davis'], help='encode target rule, vos or davis')
         return parser
@@ -107,7 +106,9 @@ class CDDataset(BaseDataset):
             return get_pseudo_color_map(mask, color_map=self.color_map)
         elif self.encode_target_rule == 'vos':
             mask[mask > 0] = 255
-            mask = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
+
+            if self.opt.input_nc == 3:
+                mask = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
             return Image.fromarray(mask.astype(np.uint8))
     
     def crop_person(self, image, mask):
@@ -141,7 +142,7 @@ class CDDataset(BaseDataset):
         
         if self.opt.target == 'mask':
             image = self.encode_target(image)
-            if self.opt.suffix_cd == 'png' and self.opt.source == 'cd':
+            if self.opt.suffix_cd == 'png' and self.opt.source != 'mv':
                 cd = self.encode_target(cd)
         
         if self.opt.crop_person:
