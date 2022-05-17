@@ -80,3 +80,80 @@ def mean_iou(intersect_area, pred_area, label_area):
         class_iou.append(iou)
     miou = np.mean(class_iou)
     return np.array(class_iou), miou
+
+def accuracy(pred: np.ndarray, label: np.ndarray, num_classes: int, ignore_index=255):
+    """
+    Calculate accuracy.
+    Args:
+        pred (Tensor): The prediction by model.
+        label (Tensor): The ground truth of image.
+        num_classes (int): The unique number of target classes.
+        ignore_index (int): Specifies a target value that is ignored. Default: 255.
+    Returns:
+        float: accuracy on all classes.
+    """
+    if len(pred.shape) == 4:
+        pred = np.squeeze(pred, axis=1)
+    if len(label.shape) == 4:
+        label = np.squeeze(label, axis=1)
+    if not pred.shape == label.shape:
+        raise ValueError('Shape of `pred` and `label should be equal, '
+                         'but there are {} and {}.'.format(pred.shape,
+                                                           label.shape))
+    mask = label != ignore_index
+    pred = pred[mask]
+    label = label[mask]
+    acc = skmetrics.accuracy_score(label, pred)
+    return acc
+
+
+def recall(pred: np.ndarray, label: np.ndarray, num_classes: int, ignore_index=255):
+    """
+    Calculate recall.
+    Args:
+        pred (Tensor): The prediction by model.
+        label (Tensor): The ground truth of image.
+        num_classes (int): The unique number of target classes.
+        ignore_index (int): Specifies a target value that is ignored. Default: 255.
+    Returns:
+        float: recall on all classes.
+    """
+    if len(pred.shape) == 4:
+        pred = np.squeeze(pred, axis=1)
+    if len(label.shape) == 4:
+        label = np.squeeze(label, axis=1)
+    if not pred.shape == label.shape:
+        raise ValueError('Shape of `pred` and `label should be equal, '
+                         'but there are {} and {}.'.format(pred.shape,
+                                                           label.shape))
+    mask = label != ignore_index
+    pred = pred[mask]
+    label = label[mask]
+    rec = skmetrics.recall_score(label, pred)
+    return rec
+
+
+def f1_score(pred: np.ndarray, label: np.ndarray, num_classes: int, ignore_index=255):
+    """
+    Calculate f1 score.
+    Args:
+        pred (Tensor): The prediction by model.
+        label (Tensor): The ground truth of image.
+        num_classes (int): The unique number of target classes.
+        ignore_index (int): Specifies a target value that is ignored. Default: 255.
+    Returns:
+        float: f1 score on all classes.
+    """
+    if len(pred.shape) == 4:
+        pred = np.squeeze(pred, axis=1)
+    if len(label.shape) == 4:
+        label = np.squeeze(label, axis=1)
+    if not pred.shape == label.shape:
+        raise ValueError('Shape of `pred` and `label should be equal, '
+                         'but there are {} and {}.'.format(pred.shape,
+                                                           label.shape))
+    mask = label != ignore_index
+    pred = pred[mask]
+    label = label[mask]
+    f1 = skmetrics.f1_score(label, pred)
+    return f1
