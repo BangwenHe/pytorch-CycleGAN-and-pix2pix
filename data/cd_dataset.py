@@ -6,6 +6,7 @@ import os.path as osp
 
 import numpy as np
 from PIL import Image, ImageOps
+import torchvision.transforms as T
 
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
@@ -72,7 +73,7 @@ class CDDataset(BaseDataset):
             
             src2name = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge'}
             assert opt.source in src2name.keys()
-            cd_paths = [osp.join(voc2012_dir, src2name[opt.source], line.strip() + self.suffix_cd) for line in filenames]
+            cd_paths = [osp.join(voc2012_dir, src2name[opt.source], line.strip() + "." + self.suffix_cd) for line in filenames]
 
         assert len(image_paths) == len(cd_paths), f'len(image_paths)={len(image_paths)}, len(cd_paths)={len(cd_paths)}'
 
@@ -84,7 +85,12 @@ class CDDataset(BaseDataset):
         self.image_paths = [image_paths[i] for i in files_idxes]
         self.cd_paths = [cd_paths[i] for i in files_idxes]
 
-        self.transform = get_transform(opt, grayscale=(opt.input_nc == 1))
+        if 'InterpolationMode' in dir(T):
+            interpolation = T.InterpolationMode.BICUBIC
+        else:
+            interpolation = Image.BICUBIC
+
+        self.transform = get_transform(opt, grayscale=(opt.input_nc == 1), method=interpolation)
         self.color_map = get_color_map_list(2)
         self.encode_target_rule = opt.encode_target_rule
     
