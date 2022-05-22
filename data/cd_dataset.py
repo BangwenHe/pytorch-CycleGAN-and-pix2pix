@@ -71,7 +71,7 @@ class CDDataset(BaseDataset):
             elif opt.target == 'mask':
                 image_paths = [osp.join(voc2012_dir, 'SegmentationClass', line.strip() + '.png') for line in filenames]
             
-            src2name = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge'}
+            src2name = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge', 'f3c': 'Fake3ChannelImages'}
             assert opt.source in src2name.keys()
             cd_paths = [osp.join(voc2012_dir, src2name[opt.source], line.strip() + "." + self.suffix_cd) for line in filenames]
 
@@ -90,7 +90,8 @@ class CDDataset(BaseDataset):
         else:
             interpolation = Image.BICUBIC
 
-        self.transform = get_transform(opt, grayscale=(opt.input_nc == 1), method=interpolation)
+        self.transform_input = get_transform(opt, grayscale=(opt.input_nc == 1), method=interpolation)
+        self.transform_output = get_transform(opt, grayscale=(opt.output_nc == 1), method=interpolation)
         self.color_map = get_color_map_list(2)
         self.encode_target_rule = opt.encode_target_rule
     
@@ -98,7 +99,7 @@ class CDDataset(BaseDataset):
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--crop_person', action='store_true', help='crop person')
         parser.add_argument('--target', choices=['rgb', 'mask'], default='rgb', help='train target, rgb or mask')
-        parser.add_argument('--source', choices=['cd', 'mv', 'edge'], default='cd', help='source, cd or mv or edge')
+        parser.add_argument('--source', choices=['cd', 'mv', 'edge', 'f3c'], default='cd', help='source, cd or mv or edge')
         parser.add_argument('--suffix_cd', type=str, default='txt', choices=['txt', 'png'], help='suffix of compressed domain data')
         parser.add_argument('--encode_target_rule', type=str, default='vos', choices=['vos', 'davis'], help='encode target rule, vos or davis')
         return parser
@@ -148,16 +149,20 @@ class CDDataset(BaseDataset):
         
         if self.opt.target == 'mask':
             image = self.encode_target(image)
-            if self.opt.suffix_cd == 'png' and self.opt.source != 'mv':
+            if self.opt.suffix_cd == 'png' and cd.mode in ['L', '1', 'P']:
                 cd = self.encode_target(cd)
         
         if self.opt.crop_person:
             assert self.opt.target == 'mask', 'crop_person only support mask target'
             cd, image = self.crop_person(cd, image)
             image = image.convert('RGB')
-        
-        data_A = self.transform(image)
-        data_B = self.transform(cd)
+
+        if self.opt.direction == 'AtoB':
+            data_A = self.transform_input(image)
+            data_B = self.transform_output(cd)
+        elif self.opt.direction == 'BtoA':
+            data_A = self.transform_output(image)
+            data_B = self.transform_input(cd)
 
         return {'A': data_A, 'B': data_B, 'A_paths': path, 'B_paths': cd_path}
 
