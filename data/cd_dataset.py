@@ -59,7 +59,8 @@ def load_cdd(cdd_filepath, image_width, image_height):
 
 
 __TARGET_TO_NAME__ = {'rgb': 'JPEGImages', 'mask': 'SegmentationClass', 'canny': 'SegmentationEdge'}
-__SOURCE_TO_NAME__ = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge', 'f3c': 'Fake3ChannelImages'}
+__SOURCE_TO_NAME__ = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 
+    'edge': 'Edge', 'f3c': 'Fake3ChannelImages', 'canny_cd': 'CannyCDEdge'}
 
 
 class CDDataset(BaseDataset):
