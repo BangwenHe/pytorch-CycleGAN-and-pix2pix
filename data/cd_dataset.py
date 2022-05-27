@@ -58,6 +58,10 @@ def load_cdd(cdd_filepath, image_width, image_height):
     return image
 
 
+__TARGET_TO_NAME__ = {'rgb': 'JPEGImages', 'mask': 'SegmentationClass', 'canny': 'SegmentationEdge'}
+__SOURCE_TO_NAME__ = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge', 'f3c': 'Fake3ChannelImages'}
+
+
 class CDDataset(BaseDataset):
     def __init__(self, opt):
         BaseDataset.__init__(self, opt)
@@ -66,14 +70,8 @@ class CDDataset(BaseDataset):
         self.suffix_cd = opt.suffix_cd
         with open(voc2021_dataset_file, 'r') as f:
             filenames = f.readlines()
-            if opt.target == 'rgb':
-                image_paths = [osp.join(voc2012_dir, 'JPEGImages', line.strip() + '.jpg') for line in filenames]
-            elif opt.target == 'mask':
-                image_paths = [osp.join(voc2012_dir, 'SegmentationClass', line.strip() + '.png') for line in filenames]
-            
-            src2name = {'cd': 'CompressedDomainData', 'mv': 'MotionVectors', 'edge': 'Edge', 'f3c': 'Fake3ChannelImages'}
-            assert opt.source in src2name.keys()
-            cd_paths = [osp.join(voc2012_dir, src2name[opt.source], line.strip() + "." + self.suffix_cd) for line in filenames]
+            image_paths = [osp.join(voc2012_dir, __TARGET_TO_NAME__[opt.target], line.strip() + ".png") for line in filenames]
+            cd_paths = [osp.join(voc2012_dir, __SOURCE_TO_NAME__[opt.source], line.strip() + "." + self.suffix_cd) for line in filenames]
 
         assert len(image_paths) == len(cd_paths), f'len(image_paths)={len(image_paths)}, len(cd_paths)={len(cd_paths)}'
 
@@ -98,8 +96,8 @@ class CDDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--crop_person', action='store_true', help='crop person')
-        parser.add_argument('--target', choices=['rgb', 'mask'], default='rgb', help='train target, rgb or mask')
-        parser.add_argument('--source', choices=['cd', 'mv', 'edge', 'f3c'], default='cd', help='source, cd or mv or edge')
+        parser.add_argument('--target', choices=__TARGET_TO_NAME__.keys(), default='rgb', help='train target, rgb or mask')
+        parser.add_argument('--source', choices=__SOURCE_TO_NAME__.keys(), default='cd', help='source, cd or mv or edge')
         parser.add_argument('--suffix_cd', type=str, default='txt', choices=['txt', 'png'], help='suffix of compressed domain data')
         parser.add_argument('--encode_target_rule', type=str, default='vos', choices=['vos', 'davis'], help='encode target rule, vos or davis')
         return parser
